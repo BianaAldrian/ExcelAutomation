@@ -2,6 +2,7 @@ package org.example;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.RegionUtil;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.util.IOUtils;
 
@@ -22,6 +23,23 @@ public class ExcelWriter {
             byte[] bytes = IOUtils.toByteArray(inputStream);
             int pictureIndex = workbook.addPicture(bytes, Workbook.PICTURE_TYPE_PNG);
             inputStream.close();
+
+            // Set the page layout size to legal (21.59 x 35.56 cm)
+            sheet.getPrintSetup().setPaperSize(PrintSetup.LEGAL_PAPERSIZE);
+            sheet.getPrintSetup().setLandscape(false); // Set to true if you want landscape orientation
+
+            // Set the print margins
+            sheet.setMargin(Sheet.LeftMargin, 0.6); // Set the left margin to 0.6 inches
+            sheet.setMargin(Sheet.TopMargin, 1.3); // Set the top margin to 1.3 inches
+            sheet.setMargin(Sheet.RightMargin, 0.6); // Set the right margin to 0.6 inches
+            sheet.setMargin(Sheet.BottomMargin, 1.3); // Set the bottom margin to 1.3 inches
+
+            // Set header and footer margins
+            sheet.setMargin(Sheet.HeaderMargin, 0.8); // Set the header margin to 0.8 inches
+            sheet.setMargin(Sheet.FooterMargin, 0.8); // Set the footer margin to 0.8 inches
+
+            // Center on page horizontally
+            sheet.setHorizontallyCenter(true);
 
             // Create a drawing canvas
             Drawing<?> drawing = sheet.createDrawingPatriarch();
@@ -79,7 +97,6 @@ public class ExcelWriter {
             int additionalTextRowIndex = titleRowIndex + 1; // The next row after the title
             Row additionalTextRow = sheet.createRow(additionalTextRowIndex);
             additionalTextRow.setHeightInPoints(35); // Set the row height to 35 points (approximately 35 pixels)
-
             Cell additionalTextCell = additionalTextRow.createCell(8); // Create a cell in column I
             additionalTextCell.setCellValue("No : 2024-000-025"); // Set the additional text
 
@@ -95,6 +112,44 @@ public class ExcelWriter {
             additionalTextStyle.setVerticalAlignment(VerticalAlignment.CENTER); // Set vertical alignment to center
             additionalTextStyle.setFont(additionalTextFont);
             additionalTextCell.setCellStyle(additionalTextStyle);
+
+            // Add the text "Delivered to:" in cell A9
+            int deliveryInfoRowIndex = 8; // Row index for A9 (0-based)
+            Row deliveryInfoRow = sheet.createRow(deliveryInfoRowIndex);
+            deliveryInfoRow.setHeightInPoints(27);
+            Cell deliveryInfoCell = deliveryInfoRow.createCell(0); // Cell A9
+            deliveryInfoCell.setCellValue("Delivered to:"); // Set the text
+
+            // Create a font and style for the "Delivered to:" text
+            Font deliveryInfoFont = workbook.createFont();
+            deliveryInfoFont.setFontName("Gisha");
+            deliveryInfoFont.setFontHeightInPoints((short) 9);
+            deliveryInfoFont.setColor(IndexedColors.BLACK.getIndex()); // Set the font color to black
+
+            CellStyle deliveryInfoStyle = workbook.createCellStyle();
+            deliveryInfoStyle.setFont(deliveryInfoFont);
+            deliveryInfoCell.setCellStyle(deliveryInfoStyle);
+
+            // Create a CellStyle for the merged region with a bottom border
+            CellStyle mergedCellStyle = workbook.createCellStyle();
+            mergedCellStyle.setBorderBottom(BorderStyle.THIN); // Set a thin bottom border
+
+            // Apply the style to each cell in the merged region
+            for (int colIndex = 1; colIndex <= 5; colIndex++) {
+                Cell cell = sheet.getRow(8).createCell(colIndex);
+                cell.setCellStyle(mergedCellStyle);
+            }
+
+            // Merge the title cells and apply the bottom border
+            sheet.addMergedRegion(new CellRangeAddress(
+                    8, // First row (0-based)
+                    8, // Last row  (0-based)
+                    1, // First column (0-based)
+                    5  // Last column  (0-based)
+            ));
+
+            // Ensure that the border is drawn by setting the style again after merging
+            RegionUtil.setBorderBottom(BorderStyle.HAIR, new CellRangeAddress(8, 8, 1, 5), sheet);
 
             // Save the workbook to a file
             FileOutputStream fileOut = new FileOutputStream("C:\\Users\\5CG6105SVT\\Desktop\\custom_layout.xlsx"); // Output file name
