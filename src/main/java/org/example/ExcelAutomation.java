@@ -2,186 +2,239 @@ package org.example;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.util.Units;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.io.*;
+import java.util.*;
 
 public class ExcelAutomation {
+
+    private static final String HEADER = "res/images/header.png";
+    private static final String EXCEL_FILE_PATH = "C:\\Users\\5CG6105SVT\\Desktop\\LTE-SM-2023-Allocation-List-Lots-10111219-Nikka-Trading-1-Copy.xlsx";
+    private static final String TEMPLATE_FILE_PATH = "res/files/receiptTemplate.xlsx";
+    private static final String NEW_FILE_PATH = "C:\\Users\\5CG6105SVT\\Desktop\\newFile.xlsx";
+
+    private static final int COLUMN_INDEX_C = 2;
+
+    private static String region, division, schoolID, schoolName, gradeLevel;
+
     public static void main(String[] args) {
-        String excelFilePath = "C:\\Users\\5CG6105SVT\\Desktop\\LTE-SM-2023-Allocation-List-Lots-10111219-Nikka-Trading-1-Copy.xlsx";
+        try (
+                FileInputStream fis = new FileInputStream(EXCEL_FILE_PATH);
+                Workbook workbook = WorkbookFactory.create(fis);
+                FileInputStream templateFis = new FileInputStream(new File(TEMPLATE_FILE_PATH));
+                Workbook templateWorkbook = new XSSFWorkbook(templateFis);
+                FileOutputStream fileOut = new FileOutputStream(NEW_FILE_PATH)
+        ) {
+            Sheet sheet = workbook.getSheetAt(0);
 
-        // Path to your existing Excel template file
-        String templateFilePath = "res/files/receiptTemplate.xlsx";
-
-        // Path to save the new Excel file
-        String newFilePath = "C:\\Users\\5CG6105SVT\\Desktop\\newFile.xlsx";
-
-        try {
-            FileInputStream fis = new FileInputStream(excelFilePath);
-            Workbook workbook = WorkbookFactory.create(fis);
-            Sheet sheet = workbook.getSheetAt(0); // Assuming it's the first sheet
-
-            // Get the fourth row
-            Row row4 = sheet.getRow(3); // Index 3 represents the fourth row
-
-            // Initialize list to store values of columns 0 to 4 in row 4
-            List<String> row4Values = new ArrayList<>();
-
-            // Get values of columns 0 to 4 in row 4
-            for (int colIndex = 0; colIndex <= 4; colIndex++) {
-                Cell cell = row4.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK); // Ensure cell is not null
-                System.out.println("Processing cell in column " + (colIndex + 1) + " of row 4");
-                System.out.println("Cell value: " + getCellValueAsString(cell)); // Print cell value for debugging
-                row4Values.add(getCellValueAsString(cell)); // Add cell value to list
-            }
-
-            int mergedRegionsCount = sheet.getNumMergedRegions(); // Get the total number of merged regions
-
-            // Create a list to store merged regions
-            List<CellRangeAddress> mergedRegions = new ArrayList<>();
-
-            // Add all merged regions to the list
-            for (int i = 0; i < mergedRegionsCount; i++) {
-                CellRangeAddress mergedRegion = sheet.getMergedRegion(i);
-                if (mergedRegion.getFirstRow() == 0) {
-                    mergedRegions.add(mergedRegion);
+            Map<String, StringBuilder> groupsC = new HashMap<>();
+            for (int rowIndex = 3; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                Cell cellC = row.getCell(COLUMN_INDEX_C);
+                if (cellC != null) {
+                    String cellValueC = getCellValueAsString(cellC);
+                    groupsC.computeIfAbsent(cellValueC, k -> new StringBuilder()).append(rowIndex).append(",");
                 }
             }
 
-            // Sort the merged regions by their starting column
-            mergedRegions.sort(Comparator.comparingInt(CellRangeAddress::getFirstColumn));
-
-            // Process merged regions in order
-            for (int i = 0; i < mergedRegions.size(); i++) {
-                CellRangeAddress mergedRegion = mergedRegions.get(i);
-                int mergedGroupIndex = i + 1;
-
-                // Get the title of the merged group from row 1
-                Cell titleCell = sheet.getRow(0).getCell(mergedRegion.getFirstColumn());
-                String title = (titleCell != null) ? titleCell.toString() : "Untitled";
-
-                // Print merged group title
-                System.out.println("Merged Group " + mergedGroupIndex + " Title: " + title);
-
-                // Loop through cells in row 2 within the merged region
-                Row row2 = sheet.getRow(1); // Row 2
-                for (int colIndex = mergedRegion.getFirstColumn(); colIndex <= mergedRegion.getLastColumn(); colIndex++) {
-                    // Check if the cell is part of row 2
-                    if (colIndex >= 0 && colIndex < row2.getLastCellNum()) {
-                        Cell cell = row2.getCell(colIndex);
-                        // Print cell value
-                        if (cell != null) {
-                            System.out.println("Value in column " + (colIndex + 1) + " of row 2: " + cell.toString());
-
-                            // Retrieve and print the value of the cell directly below in row 3
-                            Row row3 = sheet.getRow(3); // Row 3
-                            if (row3 != null) {
-                                Cell cellBelow = row3.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                                System.out.println("Value under the cell of row 2 in column " + (colIndex + 1) + ": " + getCellValueAsString(cellBelow));
-                            }
+            for (Map.Entry<String, StringBuilder> entry : groupsC.entrySet()) {
+                String[] rowIndices = entry.getValue().toString().split(",");
+                int[] rowNumbers = Arrays.stream(rowIndices).mapToInt(Integer::parseInt).toArray();
+                for (int rowNum : rowNumbers) {
+                    Row row = sheet.getRow(rowNum);
+                    for (int colIndex = 0; colIndex <= 4; colIndex++) {
+                        Cell cell = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                        String cellValue = getCellValueAsString(cell);
+                        switch (colIndex) {
+                            case 0 -> region = cellValue;
+                            case 1 -> division = cellValue;
+                            case 2 -> schoolID = cellValue;
+                            case 3 -> schoolName = cellValue;
+                            case 4 -> gradeLevel = cellValue;
                         }
                     }
+
+                    List<CellRangeAddress> mergedRegions = getMergedRegions(sheet);
+                    for (int i = 0; i < 1; i++) {
+                        CellRangeAddress mergedRegion = mergedRegions.get(i);
+                        processMergedRegion(sheet, mergedRegion, i + 1, row);
+                    }
+
+                    updateTemplate(templateWorkbook, 11, 1, schoolName);
+                    updateTemplate(templateWorkbook, 11, 3, schoolID);
+                    updateTemplate(templateWorkbook, 12, 1, division);
+                    updateTemplate(templateWorkbook, 12, 3, region);
+                    updateTemplate(templateWorkbook, 19, 0, gradeLevel);
+
                 }
+                break;
             }
 
-            System.out.println("Number of merged groups in row 1: " + mergedRegions.size());
-
-            fis.close(); // Close the FileInputStream for the original workbook
-
-            // Open the template workbook
-            FileInputStream templateFis = new FileInputStream(new File(templateFilePath));
-            Workbook templateWorkbook = new XSSFWorkbook(templateFis);
-
-            // Access the worksheet you want to modify, assuming it's the first one
-            Sheet templateSheet = templateWorkbook.getSheetAt(0);
-
-            // Retrieve the style from the template cell A20 (if it exists)
-            CellStyle templateStyle = null;
-            Row templateRow = templateSheet.getRow(19); // 0-based index for the 4th row
-            if (templateRow != null) {
-                Cell templateCell = templateRow.getCell(0); // 0-based index for the 1st column
-                if (templateCell != null) {
-                    templateStyle = templateCell.getCellStyle();
-                }
-            }
-
-            // Set the value "Grade shs" in cell A20
-            int rowIndex = 19; // Rows are 0-based, so this accesses the fourth row
-            Row row = templateSheet.getRow(rowIndex);
-            if (row == null) {
-                row = templateSheet.createRow(rowIndex);
-            }
-            Cell cell = row.createCell(0); // Columns are 0-based, this accesses the first column (A)
-            cell.setCellValue("Grade shs"); // Set the value of the cell
-
-            // Apply the retrieved style to the new cell if it exists
-            if (templateStyle != null) {
-                cell.setCellStyle(templateStyle);
-            }
-
-           /* // Create numbered items from A5 to A30
-            for (int i = 21; i <= 48; i++) { // Loop from row index 21 (A21) to 29 (A49)
-                row = templateSheet.getRow(i);
-                if (row == null) {
-                    row = templateSheet.createRow(i);
-                }
-                cell = row.createCell(0); // Create cell in column A
-                cell.setCellValue(i - 20); // Set cell value to the item number
-
-                // Apply the retrieved style to the new cell if it exists
-                if (templateStyle != null) {
-                    cell.setCellStyle(templateStyle);
-                }
-            }*/
-
-            // Write the output to a new file
-            FileOutputStream fileOut = new FileOutputStream(newFilePath);
             templateWorkbook.write(fileOut);
-
-            // Close all resources
-            fileOut.close();
-            templateFis.close();
-            templateWorkbook.close();
-
-            System.out.println("New Excel file created successfully from the template with 'Grade shs' in cell A4 and numbered items from A5 to A30.");
-
+            System.out.println("New Excel file created successfully.");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Utility method to retrieve cell value as string
     private static String getCellValueAsString(Cell cell) {
         if (cell == null) {
-            return ""; // Return empty string for null cells
+            return "";
         }
-
-        DataFormatter formatter = new DataFormatter(); // Creating formatter using the default locale
-
+        DataFormatter formatter = new DataFormatter();
         switch (cell.getCellType()) {
             case STRING:
                 return cell.getStringCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    return formatter.formatCellValue(cell); // Format date
+                    return formatter.formatCellValue(cell);
                 } else {
-                    return String.valueOf(cell.getNumericCellValue()); // Convert numeric value to string
+                    return String.valueOf(cell.getNumericCellValue());
                 }
-
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());
             case FORMULA:
-                return cell.getCellFormula(); // You might want to evaluate formula cells
+                return cell.getCellFormula();
             case BLANK:
-                return ""; // Return empty string for blank cells
+                return "";
             default:
-                return "Unknown Cell Type"; // Return this for unknown cell types
+                return "Unknown Cell Type";
         }
+    }
+
+    private static void addHeaderImage(Sheet sheet, Workbook workbook, int newRowStart) {
+        Drawing<?> drawing = sheet.createDrawingPatriarch();
+        CreationHelper helper = workbook.getCreationHelper();
+        ClientAnchor anchor = helper.createClientAnchor();
+        anchor.setCol1(0);
+        anchor.setCol2(3);
+        int dx2 = Units.toEMU(10 * Units.DEFAULT_CHARACTER_WIDTH);
+        anchor.setDx2(dx2);
+        anchor.setRow1(newRowStart + 1);
+        anchor.setRow2(newRowStart + 6);
+        try (FileInputStream fis = new FileInputStream(HEADER)) {
+            byte[] bytes = fis.readAllBytes();
+            int pictureIndex = workbook.addPicture(bytes, Workbook.PICTURE_TYPE_PNG);
+            drawing.createPicture(anchor, pictureIndex);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void cloneCell(Cell sourceCell, Cell newCell, Sheet sheet) {
+        newCell.setCellStyle(sourceCell.getCellStyle());
+        switch (sourceCell.getCellType()) {
+            case STRING:
+                newCell.setCellValue(sourceCell.getStringCellValue());
+                break;
+            case NUMERIC:
+                newCell.setCellValue(sourceCell.getNumericCellValue());
+                break;
+            case BOOLEAN:
+                newCell.setCellValue(sourceCell.getBooleanCellValue());
+                break;
+            case FORMULA:
+                newCell.setCellFormula(sourceCell.getCellFormula());
+                break;
+            case BLANK:
+                newCell.setCellType(CellType.BLANK);
+                break;
+            case ERROR:
+                newCell.setCellErrorValue(sourceCell.getErrorCellValue());
+                break;
+            default:
+                newCell.setCellValue(sourceCell.toString());
+                break;
+        }
+
+        int columnIndex = sourceCell.getColumnIndex();
+        int width = sheet.getColumnWidth(columnIndex);
+        sheet.setColumnWidth(newCell.getColumnIndex(), width);
+
+        for (CellRangeAddress mergedRegion : sheet.getMergedRegions()) {
+            if (mergedRegion.isInRange(sourceCell.getRowIndex(), sourceCell.getColumnIndex())) {
+                CellRangeAddress newMergedRegion = new CellRangeAddress(
+                        newCell.getRowIndex(),
+                        newCell.getRowIndex() + (mergedRegion.getLastRow() - mergedRegion.getFirstRow()),
+                        newCell.getColumnIndex(),
+                        newCell.getColumnIndex() + (mergedRegion.getLastColumn() - mergedRegion.getFirstColumn())
+                );
+                if (!isOverlapping(newMergedRegion, sheet.getMergedRegions())) {
+                    sheet.addMergedRegion(newMergedRegion);
+                }
+                break;
+            }
+        }
+    }
+
+    private static boolean isOverlapping(CellRangeAddress newRegion, List<CellRangeAddress> existingRegions) {
+        for (CellRangeAddress existingRegion : existingRegions) {
+            if (newRegion.isInRange(existingRegion.getFirstRow(), existingRegion.getFirstColumn()) ||
+                    newRegion.isInRange(existingRegion.getLastRow(), existingRegion.getLastColumn())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void processMergedRegion(Sheet sheet, CellRangeAddress mergedRegion, int mergedGroupIndex, Row row) {
+        // Extracting title from the first row of the merged region
+        Cell titleCell = sheet.getRow(0).getCell(mergedRegion.getFirstColumn());
+        String title = (titleCell != null) ? titleCell.toString() : "Untitled";
+        System.out.println("Merged Group " + mergedGroupIndex + " Title: " + title);
+
+        Row row2 = sheet.getRow(1);
+        // Iterating over the cells within the merged region
+        for (int colIndex = mergedRegion.getFirstColumn(); colIndex <= mergedRegion.getLastColumn(); colIndex++) {
+            if (colIndex >= 0 && colIndex < row2.getLastCellNum()) {
+                Cell cell = row2.getCell(colIndex);
+                if (cell != null) {
+                    // Updating template with cell value
+                    if (row != null) {
+                        Cell cellBelow = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                        System.out.println("Item Name: " + cell + " QTY: " + getCellValueAsString(cellBelow));
+                    }
+                }
+            }
+        }
+    }
+
+    private static void updateTemplate(Workbook templateWorkbook, int rowNum, int colNum, String value) {
+        Sheet templateSheet = templateWorkbook.getSheetAt(0);
+        CellStyle templateStyle = getTemplateCellStyle(templateSheet, rowNum, colNum);
+        Row row = templateSheet.getRow(rowNum);
+        if (row == null) {
+            row = templateSheet.createRow(rowNum);
+        }
+        Cell cell = row.createCell(colNum);
+        cell.setCellValue(value);
+        if (templateStyle != null) {
+            cell.setCellStyle(templateStyle);
+        }
+    }
+
+    private static CellStyle getTemplateCellStyle(Sheet templateSheet, int rowNum, int colNum) {
+        Row templateRow = templateSheet.getRow(rowNum);
+        if (templateRow != null) {
+            Cell templateCell = templateRow.getCell(colNum);
+            if (templateCell != null) {
+                return templateCell.getCellStyle();
+            }
+        }
+        return null;
+    }
+
+    private static List<CellRangeAddress> getMergedRegions(Sheet sheet) {
+        List<CellRangeAddress> mergedRegions = new ArrayList<>();
+        for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+            CellRangeAddress mergedRegion = sheet.getMergedRegion(i);
+            if (mergedRegion.getFirstRow() == 0) {
+                mergedRegions.add(mergedRegion);
+            }
+        }
+        mergedRegions.sort(Comparator.comparingInt(CellRangeAddress::getFirstColumn));
+        return mergedRegions;
     }
 }
