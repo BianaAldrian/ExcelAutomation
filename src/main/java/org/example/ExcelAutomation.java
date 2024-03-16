@@ -4,6 +4,11 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.util.Units;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.example.Model.GradeLevelModel;
+import org.example.Model.LotModel;
+import org.example.Model.SchoolModel;
+
+import java.io.IOException;
 
 import java.io.*;
 import java.util.*;
@@ -17,7 +22,8 @@ public class ExcelAutomation {
 
     private static final int COLUMN_INDEX_C = 2;
 
-    private static String region, division, schoolID, schoolName, gradeLevel;
+    private static String region = "", division = "", schoolID = "", schoolName = "", gradeLevel ="";
+    private static ArrayList<LotModel> lotHolder;
 
     public static void main(String[] args) {
         try (
@@ -39,38 +45,84 @@ public class ExcelAutomation {
                 }
             }
 
+            int count = 0;
+            ArrayList<SchoolModel> schoolHolder = new ArrayList<>();
             for (Map.Entry<String, StringBuilder> entry : groupsC.entrySet()) {
                 String[] rowIndices = entry.getValue().toString().split(",");
                 int[] rowNumbers = Arrays.stream(rowIndices).mapToInt(Integer::parseInt).toArray();
+
+                ArrayList<GradeLevelModel> gradeLevelHolder = new ArrayList<>();
                 for (int rowNum : rowNumbers) {
-                    Row row = sheet.getRow(rowNum);
-                    for (int colIndex = 0; colIndex <= 4; colIndex++) {
-                        Cell cell = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                        String cellValue = getCellValueAsString(cell);
-                        switch (colIndex) {
-                            case 0 -> region = cellValue;
-                            case 1 -> division = cellValue;
-                            case 2 -> schoolID = cellValue;
-                            case 3 -> schoolName = cellValue;
-                            case 4 -> gradeLevel = cellValue;
-                        }
-                    }
-
+                    lotHolder = new ArrayList<>();
                     List<CellRangeAddress> mergedRegions = getMergedRegions(sheet);
-                    for (int i = 0; i < 1; i++) {
+                    for (int i = 0; i < mergedRegions.size(); i++) {
                         CellRangeAddress mergedRegion = mergedRegions.get(i);
-                        processMergedRegion(templateWorkbook, sheet, mergedRegion, i + 1, row);
+                        processMergedRegion(sheet, mergedRegion, rowNum);
                     }
 
-                    updateTemplate(templateWorkbook, 11, 1, schoolName);
-                    updateTemplate(templateWorkbook, 11, 3, schoolID);
-                    updateTemplate(templateWorkbook, 12, 1, division);
-                    updateTemplate(templateWorkbook, 12, 3, region);
-                    updateTemplate(templateWorkbook, 19, 0, gradeLevel);
+                    GradeLevelModel gradeLevelModel = new GradeLevelModel(gradeLevel, lotHolder);
+                    gradeLevelHolder.add(gradeLevelModel);
 
                 }
-                break;
+
+                SchoolModel schoolModel = new SchoolModel(region, division, schoolID, schoolName, gradeLevelHolder);
+                schoolHolder.add(schoolModel);
+
+                count++;
+                //System.out.println(count);
+
+                if (count == 5) {
+                    break;
+                }
+
             }
+
+            for (SchoolModel schoolModel : schoolHolder) {
+                System.out.println("Region: " + schoolModel.getRegion());
+                System.out.println("Division: " + schoolModel.getDivision());
+                System.out.println("School ID: " + schoolModel.getSchoolID());
+                System.out.println("School Name: " + schoolModel.getSchoolName());
+
+                for (GradeLevelModel gradeLevelModel : schoolModel.getGradeLevelHolder()) {
+                    System.out.println("Grade Level: " + gradeLevelModel.getGradeLevel());
+
+                    for (LotModel lotModel : gradeLevelModel.getLotHolder()) {
+                        System.out.println("Lot Title: " + lotModel.getLotTitle());
+                        System.out.println("Items:");
+
+                        // Print items and quantities
+                        for (int i = 0; i < lotModel.getItems().size(); i++) {
+                            System.out.println("Item: " + lotModel.getItems().get(i) + " Quantity: " + lotModel.getQTY().get(i));
+                        }
+                    }
+                }
+            }
+
+            /*try (FileWriter writer = new FileWriter("C:\\Users\\5CG6105SVT\\Desktop\\output.txt")) {
+                for (SchoolModel schoolModel : schoolHolder) {
+                    writer.write("Region: " + schoolModel.getRegion() + "\n");
+                    writer.write("Division: " + schoolModel.getDivision() + "\n");
+                    writer.write("School ID: " + schoolModel.getSchoolID() + "\n");
+                    writer.write("School Name: " + schoolModel.getSchoolName() + "\n");
+
+                    for (GradeLevelModel gradeLevelModel : schoolModel.getGradeLevelHolder()) {
+                        writer.write("Grade Level: " + gradeLevelModel.getGradeLevel() + "\n");
+
+                        for (LotModel lotModel : gradeLevelModel.getLotHolder()) {
+                            writer.write("Lot Title: " + lotModel.getLotTitle() + "\n");
+                            writer.write("Items:\n");
+
+                            // Print items and quantities
+                            for (int i = 0; i < lotModel.getItems().size(); i++) {
+                                writer.write("Item: " + lotModel.getItems().get(i) + " Quantity: " + lotModel.getQTY().get(i) + "\n");
+                            }
+                        }
+                    }
+                }
+                System.out.println("Output has been written to output.txt");
+            } catch (IOException e) {
+                System.err.println("Error writing to file: " + e.getMessage());
+            }*/
 
             templateWorkbook.write(fileOut);
             System.out.println("New Excel file created successfully.");
@@ -78,6 +130,69 @@ public class ExcelAutomation {
             e.printStackTrace();
         }
     }
+
+    private static void processMergedRegion(Sheet sheet, CellRangeAddress mergedRegion, int rowNum) {
+
+        Row row = sheet.getRow(rowNum);
+        for (int colIndex = 0; colIndex <= 4; colIndex++) {
+            Cell cell = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+            String cellValue = getCellValueAsString(cell);
+            switch (colIndex) {
+                case 0 -> region = cellValue;
+                case 1 -> division = cellValue;
+                case 2 -> schoolID = cellValue;
+                case 3 -> schoolName = cellValue;
+                case 4 -> gradeLevel = cellValue;
+            }
+        }
+
+        // Extracting title from the first row of the merged region
+        Cell titleCell = sheet.getRow(0).getCell(mergedRegion.getFirstColumn());
+        String title = (titleCell != null) ? titleCell.toString() : "Untitled";
+        //System.out.println("Merged Group " + mergedGroupIndex + " Title: " + title);
+
+        // Initializing variables
+        Row row2 = sheet.getRow(1);
+
+        ArrayList<String> itemHolder = new ArrayList<>();
+        ArrayList<String> qtyHolder = new ArrayList<>();
+
+        // Iterating over the cells within the merged region
+        for (int colIndex = mergedRegion.getFirstColumn(); colIndex <= mergedRegion.getLastColumn(); colIndex++) {
+            if (colIndex >= 0 && colIndex < row2.getLastCellNum()) {
+                Cell cell = row2.getCell(colIndex);
+                if (cell != null) {
+                    Cell cellBelow = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
+                    if (cellBelow != null) {
+                        String qtyString = cellBelow.toString();
+                        double qtyDouble = Double.parseDouble(qtyString);
+                        int qtyInt = (int) qtyDouble;
+                        //System.out.println("Item Name: " + cell.toString() + " QTY: " + qtyInt);
+
+                        itemHolder.add(cell.toString());
+                        qtyHolder.add(String.valueOf(qtyInt));
+                    }
+                }
+            }
+        }
+
+        LotModel lotModel = new LotModel(title, itemHolder, qtyHolder);
+        lotHolder.add(lotModel);
+
+    }
+
+    private static List<CellRangeAddress> getMergedRegions(Sheet sheet) {
+        List<CellRangeAddress> mergedRegions = new ArrayList<>();
+        for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+            CellRangeAddress mergedRegion = sheet.getMergedRegion(i);
+            if (mergedRegion.getFirstRow() == 0) {
+                mergedRegions.add(mergedRegion);
+            }
+        }
+        mergedRegions.sort(Comparator.comparingInt(CellRangeAddress::getFirstColumn));
+        return mergedRegions;
+    }
+
 
     private static String getCellValueAsString(Cell cell) {
         if (cell == null) {
@@ -179,72 +294,6 @@ public class ExcelAutomation {
         return false;
     }
 
-    private static void processMergedRegion(Workbook templateWorkbook, Sheet sheet, CellRangeAddress mergedRegion, int mergedGroupIndex, Row row) {
-        // Extracting title from the first row of the merged region
-        Cell titleCell = sheet.getRow(0).getCell(mergedRegion.getFirstColumn());
-        String title = (titleCell != null) ? titleCell.toString() : "Untitled";
-        System.out.println("Merged Group " + mergedGroupIndex + " Title: " + title);
-        // Updating the template with the extracted title
-        updateTemplate(templateWorkbook, 17, 1, title);
-
-        // Initializing variables
-        int startRow = 20;
-        int rowCount = 0; // Counter for row count
-        Row row2 = sheet.getRow(1);
-
-        // Iterating over the cells within the merged region
-        for (int colIndex = mergedRegion.getFirstColumn(); colIndex <= mergedRegion.getLastColumn(); colIndex++) {
-            if (colIndex >= 0 && colIndex < row2.getLastCellNum()) {
-                Cell cell = row2.getCell(colIndex);
-                if (cell != null) {
-                    // Updating template with cell value
-                    updateTemplate(templateWorkbook, startRow, 1, cell.toString());
-                    if (row != null) {
-                        Cell cellBelow = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                        System.out.println("Item Name: " + cell.toString() + " QTY: " + getCellValueAsString(cellBelow));
-                        // Updating template with cell value below
-                        updateTemplate(templateWorkbook, startRow, 2, getCellValueAsString(cellBelow));
-                    }
-                    startRow++;
-                    rowCount++;
-                }
-
-                // Checking if rowCount reaches 24
-                if (rowCount == 24) {
-                    // Create a new template when rowCount reaches 24
-
-                    // Get the template sheet and its last row number
-                    Sheet templateSheet = templateWorkbook.getSheetAt(0);
-                    int lastRowNum = templateSheet.getLastRowNum();
-
-                    // Define the starting row for the new content
-                    int newRowStart = (lastRowNum + 3);
-
-                    // Add header image to the new content
-                    addHeaderImage(templateSheet, templateWorkbook, newRowStart);
-
-                    // Clone rows from the template to the new content
-                    for (int j = 0; j <= lastRowNum; j++) {
-                        Row sourceRow = templateSheet.getRow(j);
-                        Row newRow = templateSheet.createRow(newRowStart + j);
-                        if (sourceRow != null) {
-                            for (int k = 0; k < sourceRow.getLastCellNum(); k++) {
-                                Cell sourceCell = sourceRow.getCell(k);
-                                if (sourceCell != null) {
-                                    Cell newCell = newRow.createCell(k);
-                                    cloneCell(sourceCell, newCell, templateSheet);
-                                }
-                            }
-                        }
-                    }
-                    break; // Exit the loop once the new content is created
-                }
-            }
-        }
-    }
-
-
-
     private static void updateTemplate(Workbook templateWorkbook, int rowNum, int colNum, String value) {
         Sheet templateSheet = templateWorkbook.getSheetAt(0);
         CellStyle templateStyle = getTemplateCellStyle(templateSheet, rowNum, colNum);
@@ -268,17 +317,5 @@ public class ExcelAutomation {
             }
         }
         return null;
-    }
-
-    private static List<CellRangeAddress> getMergedRegions(Sheet sheet) {
-        List<CellRangeAddress> mergedRegions = new ArrayList<>();
-        for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
-            CellRangeAddress mergedRegion = sheet.getMergedRegion(i);
-            if (mergedRegion.getFirstRow() == 0) {
-                mergedRegions.add(mergedRegion);
-            }
-        }
-        mergedRegions.sort(Comparator.comparingInt(CellRangeAddress::getFirstColumn));
-        return mergedRegions;
     }
 }
