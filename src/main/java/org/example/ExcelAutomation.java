@@ -59,7 +59,7 @@ public class ExcelAutomation {
                     List<CellRangeAddress> mergedRegions = getMergedRegions(sheet);
                     for (int i = 0; i < 1; i++) {
                         CellRangeAddress mergedRegion = mergedRegions.get(i);
-                        processMergedRegion(sheet, mergedRegion, i + 1, row);
+                        processMergedRegion(templateWorkbook, sheet, mergedRegion, i + 1, row);
                     }
 
                     updateTemplate(templateWorkbook, 11, 1, schoolName);
@@ -179,27 +179,71 @@ public class ExcelAutomation {
         return false;
     }
 
-    private static void processMergedRegion(Sheet sheet, CellRangeAddress mergedRegion, int mergedGroupIndex, Row row) {
+    private static void processMergedRegion(Workbook templateWorkbook, Sheet sheet, CellRangeAddress mergedRegion, int mergedGroupIndex, Row row) {
         // Extracting title from the first row of the merged region
         Cell titleCell = sheet.getRow(0).getCell(mergedRegion.getFirstColumn());
         String title = (titleCell != null) ? titleCell.toString() : "Untitled";
         System.out.println("Merged Group " + mergedGroupIndex + " Title: " + title);
+        // Updating the template with the extracted title
+        updateTemplate(templateWorkbook, 17, 1, title);
 
+        // Initializing variables
+        int startRow = 20;
+        int rowCount = 0; // Counter for row count
         Row row2 = sheet.getRow(1);
+
         // Iterating over the cells within the merged region
         for (int colIndex = mergedRegion.getFirstColumn(); colIndex <= mergedRegion.getLastColumn(); colIndex++) {
             if (colIndex >= 0 && colIndex < row2.getLastCellNum()) {
                 Cell cell = row2.getCell(colIndex);
                 if (cell != null) {
                     // Updating template with cell value
+                    updateTemplate(templateWorkbook, startRow, 1, cell.toString());
                     if (row != null) {
                         Cell cellBelow = row.getCell(colIndex, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
-                        System.out.println("Item Name: " + cell + " QTY: " + getCellValueAsString(cellBelow));
+                        System.out.println("Item Name: " + cell.toString() + " QTY: " + getCellValueAsString(cellBelow));
+                        // Updating template with cell value below
+                        updateTemplate(templateWorkbook, startRow, 2, getCellValueAsString(cellBelow));
                     }
+                    startRow++;
+                    rowCount++;
+                }
+
+                // Checking if rowCount reaches 24
+                if (rowCount == 24) {
+                    // Create a new template when rowCount reaches 24
+
+                    // Get the template sheet and its last row number
+                    Sheet templateSheet = templateWorkbook.getSheetAt(0);
+                    int lastRowNum = templateSheet.getLastRowNum();
+
+                    // Define the starting row for the new content
+                    int newRowStart = (lastRowNum + 3);
+
+                    // Add header image to the new content
+                    addHeaderImage(templateSheet, templateWorkbook, newRowStart);
+
+                    // Clone rows from the template to the new content
+                    for (int j = 0; j <= lastRowNum; j++) {
+                        Row sourceRow = templateSheet.getRow(j);
+                        Row newRow = templateSheet.createRow(newRowStart + j);
+                        if (sourceRow != null) {
+                            for (int k = 0; k < sourceRow.getLastCellNum(); k++) {
+                                Cell sourceCell = sourceRow.getCell(k);
+                                if (sourceCell != null) {
+                                    Cell newCell = newRow.createCell(k);
+                                    cloneCell(sourceCell, newCell, templateSheet);
+                                }
+                            }
+                        }
+                    }
+                    break; // Exit the loop once the new content is created
                 }
             }
         }
     }
+
+
 
     private static void updateTemplate(Workbook templateWorkbook, int rowNum, int colNum, String value) {
         Sheet templateSheet = templateWorkbook.getSheetAt(0);
